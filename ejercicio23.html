@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+      html { height: 100% }
+      body { height: 100%; margin: 0; padding: 0 }
+      #mapa { width: 600px;	height: 600px }
+    </style>
+	
+    <script type="text/javascript"
+      src="https://maps.googleapis.com/maps/api/js?sensor=false">
+	  //esto se usa para utilizar la api, el parametro sensor, puede ser true o flase, depende de si se usa un sensor(ejemplo localizador gps)
+	  //Mas info aca: https://developers.google.com/maps/documentation/javascript/tutorial
+    </script>
+    <script type="text/javascript">
+	
+		//Variable para el mapa
+		var map=null;
+
+		var todos_marcadores=[];	
+	
+		var net = new Object();
+ 
+		net.READY_STATE_UNINITIALIZED=0; 
+		net.READY_STATE_LOADING=1; 
+		net.READY_STATE_LOADED=2; 
+		net.READY_STATE_INTERACTIVE=3; 
+		net.READY_STATE_COMPLETE=4; 
+		 
+		// Constructor
+		net.CargadorContenidos = function(url, funcion, funcionError, metodo, parametros, contentType, asincrono) {
+		  this.url = url;
+		  this.req = null;
+		  this.onload = funcion;
+		  this.onerror = (funcionError) ? funcionError : this.defaultError;
+		  this.cargaContenidoXML(url, metodo, parametros, contentType, asincrono);
+		}
+		 
+		net.CargadorContenidos.prototype = {
+		  cargaContenidoXML: function(url, metodo, parametros, contentType, asincrono) {
+			if(window.XMLHttpRequest) {
+			  this.req = new XMLHttpRequest();
+			}
+			else if(window.ActiveXObject) {
+			  this.req = new ActiveXObject("Microsoft.XMLHTTP");
+			}
+		 
+			if(this.req) {
+			  try {
+				var loader = this;
+				this.req.onreadystatechange = function() {
+				  loader.onReadyState.call(loader);
+				}
+				this.req.open(metodo, url, (asincrono===false)?false:true);
+				if(contentType) {
+				  this.req.setRequestHeader("Content-Type", contentType);
+				}
+				this.req.send(parametros);
+				} catch(err) {
+				  this.onerror.call(this);
+				}
+			}
+		  },
+		 
+		  onReadyState: function() {
+			var req = this.req; 
+			var ready = req.readyState; 
+			if(ready == net.READY_STATE_COMPLETE) { 
+			  var httpStatus = req.status; 
+			  if(httpStatus == 200 || httpStatus == 0) { 
+				this.onload.call(this);
+			  }
+			  else {
+				this.onerror.call(this);
+			  }
+			}
+		  },
+		 
+		  defaultError: function() {
+			alert("Se ha producido un error al obtener los datos"
+			  + "\n\nreadyState:" + this.req.readyState
+			  + "\nstatus: " + this.req.status
+			  + "\nheaders: " + this.req.getAllResponseHeaders());
+		  }
+		}
+		
+		function initialize(){
+			//variables para ubicar un sitio en el mapa
+			var latitud = 40.41558722527384;
+			var longitud = -3.6968994140625;
+			var zoom = 6;
+		  				
+			var mapOptions = {
+				center: new google.maps.LatLng(latitud, longitud),
+				zoom: zoom,
+				disableDefaultUI: true,
+				mapTypeId: google.maps.MapTypeId.SATELLITE
+			};
+			
+			//se crea un nuevo mapa, pasandole como parametro el elemento que va a contener el mapa(div)
+			map = new google.maps.Map(document.getElementById("mapa"),
+				mapOptions);
+				
+			
+//ponerMarca(event.latLng,map);
+				
+		}
+		
+		function ponerMarca(sitio,mapa) {
+			var marca = new google.maps.Marker({
+				position: sitio,
+				map: mapa,
+				title: "Marca Simple"
+			});
+			//centra el mapa donde se hizo la marca
+			mapa.setCenter(sitio);
+			
+			//añadir un evento para que cuando se haga clic se borre la marca:
+			//google.maps.event.addListener(marca, 'click',borrarMarca);
+			//mostrar una ventana con informacion de la marca cuando se hace clic
+			google.maps.event.addListener(marca, 'click',function(){
+				mostrarInfoMarca(mapa,marca);			
+			});
+		}		
+		
+		function borrarMarca(){
+			//se usa el parametro null para borrarlo del mapa, si en vez de null, se le pasa el mapa, se dibuja la marca
+			this.setMap(null);
+		}
+		
+		function posicionMarca(marca){
+			//se obtiene la posicion de la marca
+			var posicion_marca=marca.getPosition();
+			//Con la posicion, se sacan Latitud y Longitud
+			var latitud_marca=posicion_marca.lat();
+			var longitud_marca=posicion_marca.lng();
+			
+			var mensaje="Latitud= "+latitud_marca+"<br/>Longitud= "+longitud_marca;
+			return mensaje;
+		}
+		
+		function mostrarInfoMarca(mapa,marca){
+			var informacion=posicionMarca(marca);
+			//crea el objeto de la ventana
+			var infoVentana = new google.maps.InfoWindow({
+				content: informacion,
+				//maxWidth: 300,
+				//maxHeigth: 300
+			});
+			//abre la ventana
+			infoVentana.open(mapa,marca);
+		}
+		
+		function descargaClima(){
+			var url='http://vacanwallpapers.byethost6.com/previsionMeteorologica.php?nocache='+Math.random();
+			var carga=new net.CargadorContenidos(url,recibe_datos,null,"GET");					
+		}
+
+		function recibe_datos(){
+			//Se Recibe la respuesta del servidor con:		
+				//this.req.responseText  -->si es Texto
+			var respuesta_json=this.req.responseText;
+			
+			var clima=eval("("+respuesta_json+")");
+			
+									
+			ponerMarcaPersonal(clima);
+		}
+		
+		function ponerMarcaPersonal(locations) {
+			//este metodo con el párametro null,  borra las marcas anteriores, y nos sirve para evitar que se sobrepongan imagenes
+			dibujarMarcas(null,todos_marcadores);
+			// Crea las marcas y las almacena en el array todas las marcas, para luego dibujarlas en el mapa
+			todos_marcadores=[];
+			/*			
+			var imagen = {
+				url: '',
+				//Esta marca es de 32 pixeles de ancho y 32 pixeles de alto
+				size: new google.maps.Size(32, 32),
+				// Origen de la imagen (0,0)
+				origin: new google.maps.Point(0,0),
+				// el enlace de la imagen es en (0,32)
+				anchor: new google.maps.Point(0, 32)
+			};
+			*/
+			//Shapes define la region clickeable del icono
+			// el tipo define un area HTML 'poly' que traza un poligono como series de puntos (X,Y)
+			//La coordenada final, se conecta a la primera coordenada, cerrando el poligono
+
+			var shape = {
+				coord: [1, 1, 1, 32, 18, 32, 18 , 1],
+				type: 'poly'
+			};
+			for (var i=0;i<locations.length;i++){
+			
+				var punto=locations[i];
+				var prediccion=punto.prediccion;
+				var punto_lat=punto.latlon[0];
+				var punto_lon=punto.latlon[1];
+								
+				var imagen = {
+					url: 'imagenes/'+prediccion+'.png',
+					//Esta marca es de 32 pixeles de ancho y 32 pixeles de alto
+					size: new google.maps.Size(32, 32),
+					// Origen de la imagen (0,0)
+					origin: new google.maps.Point(0,0),
+					// el enlace de la imagen es en (0,32)
+					anchor: new google.maps.Point(0, 32)
+				};
+				//imagen.url='imagenes/'+prediccion+'.png';
+				
+				var marcaLatLng = new google.maps.LatLng(punto_lat, punto_lon);
+				var marca = new google.maps.Marker({
+					position: marcaLatLng,					
+					icon: imagen,
+					shape: shape,
+					title: prediccion					
+				});
+				
+				todos_marcadores.push(marca);
+			}
+			//dibujarMarcas(null,todos_marcadores);
+			dibujarMarcas(map,todos_marcadores);
+		}
+		
+		function dibujarMarcas(mapa,marcadores) {
+			for (var i=0;i<marcadores.length;i++){
+				marcadores[i].setMap(mapa);
+			}
+		}
+						
+		window.onload = function() {
+			//se carga el mapa
+			initialize();
+			//se piden los datos al server
+			setInterval(descargaClima,3000);
+		}
+    </script>
+  </head>
+  <body>
+    <div id="mapa"/>
+  </body>
+</html>

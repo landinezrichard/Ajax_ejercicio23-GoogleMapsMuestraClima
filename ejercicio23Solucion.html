@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+  "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<title>Ejercicio 23 - Google Maps</title>
+<script src="http://maps.google.com/maps?file=api&amp;v=2&amp;hl=es&amp;key=ABQIAAAA30JtKUU8se-7KKPRGSfCMBT2yXp_ZAY8_ufC3CFXhHIE1NvwkxRZNdns2BwZvEY-V68DvlyUYwi1-Q" type="text/javascript"></script>
+<script type="text/javascript">
+var map = null;
+var mgr = null;
+var lat = 40.41558722527384;
+var lon = -3.6968994140625;
+var zoom = 6;
+var puntos = {};
+var peticion = null;
+ 
+function inicializa_xhr() {
+  if(window.XMLHttpRequest) {
+    return new XMLHttpRequest(); 
+  } else if (window.ActiveXObject) {
+    return new ActiveXObject("Microsoft.XMLHTTP"); 
+  }
+}
+ 
+function load() {
+  if(GBrowserIsCompatible()) {
+    map = new GMap2(document.getElementById("map"));
+    map.setCenter(new GLatLng(lat, lon), zoom);
+    map.setMapType(G_SATELLITE_MAP);
+    setInterval(cargaPrediccion, 3000);
+  }
+}
+ 
+function cargaPrediccion() {
+  peticion = inicializa_xhr();
+  peticion.onreadystatechange = muestraPrediccion;
+  peticion.open('GET', 'http://vacanwallpapers.byethost6.com/previsionMeteorologica.php?nocache='+Math.random(), true);
+  peticion.send(null);
+}
+ 
+function muestraPrediccion() {
+  if(peticion.readyState == 4) {
+    if(peticion.status == 200) {
+      puntos = eval("("+peticion.responseText+")");
+      map.clearOverlays();
+      mgr = new GMarkerManager(map);
+      mgr.addMarkers(getMarcadores(), 3);
+      mgr.refresh();
+    }
+  }
+}
+ 
+function getMarcadores() {
+  var marcadores = [];
+  for (var i=0; i<puntos.length; ++i) {
+    var marcador = new GMarker(getPunto(i), { icon: getIcono(i) });
+    marcadores.push(marcador);
+  }
+  return marcadores;
+}
+ 
+function getPunto(i) {
+  var punto = puntos[i];
+  var lat = punto.latlon[0];
+  var lon = punto.latlon[1];
+  return new GLatLng(lat, lon);
+}
+ 
+function getIcono(i) {
+  var punto = puntos[i];
+  var icono = new GIcon();
+  icono.image = "imagenes/" + punto.prediccion + ".png";
+  icono.iconAnchor = new GPoint(16, 16);
+  icono.iconSize = new GSize(32, 32);
+ 
+  return icono;
+}
+</script>
+</head>
+ 
+<body onload="load()" onunload="GUnload()">
+  <div id="map" style="width: 600px; height: 600px"></div>
+</body>
+</html>
